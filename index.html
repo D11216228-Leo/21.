@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>21 點（Blackjack）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e3c72;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .player-area, .dealer-area {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #dee2e6;
+        }
+
+        .area-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .dealer-area .area-title {
+            color: #dc3545;
+        }
+
+        .player-area .area-title {
+            color: #28a745;
+        }
+
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 120px;
+            align-items: center;
+        }
+
+        .card {
+            width: 80px;
+            height: 110px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card.red {
+            color: #dc3545;
+        }
+
+        .card.black {
+            color: #333;
+        }
+
+        .card.hidden {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 2em;
+        }
+
+        .score {
+            margin-top: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .message-area {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 80px;
+            font-size: 1.1em;
+            color: #856404;
+            line-height: 1.6;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #dealBtn {
+            background: #28a745;
+            color: white;
+        }
+
+        #dealBtn:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        #hitBtn {
+            background: #007bff;
+            color: white;
+        }
+
+        #hitBtn:hover:not(:disabled) {
+            background: #0056b3;
+        }
+
+        #standBtn {
+            background: #ffc107;
+            color: #333;
+        }
+
+        #standBtn:hover:not(:disabled) {
+            background: #e0a800;
+        }
+
+        #resetBtn {
+            background: #6c757d;
+            color: white;
+        }
+
+        #resetBtn:hover:not(:disabled) {
+            background: #545b62;
+        }
+
+        .result-win {
+            background: #d4edda !important;
+            border-color: #28a745 !important;
+            color: #155724 !important;
+        }
+
+        .result-lose {
+            background: #f8d7da !important;
+            border-color: #dc3545 !important;
+            color: #721c24 !important;
+        }
+
+        .result-push {
+            background: #d1ecf1 !important;
+            border-color: #17a2b8 !important;
+            color: #0c5460 !important;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .card {
+                width: 60px;
+                height: 85px;
+                font-size: 1.2em;
+            }
+
+            button {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>21 點（Blackjack）</h1>
+
+        <div class="dealer-area">
+            <div class="area-title">莊家</div>
+            <div class="cards-container" id="dealerCards"></div>
+            <div class="score" id="dealerScore">點數: 0</div>
+        </div>
+
+        <div class="player-area">
+            <div class="area-title">玩家</div>
+            <div class="cards-container" id="playerCards"></div>
+            <div class="score" id="playerScore">點數: 0</div>
+        </div>
+
+        <div class="message-area" id="messageArea">
+            歡迎來到 21 點！點擊「開始」開始遊戲。
+        </div>
+
+        <div class="controls">
+            <button id="dealBtn">開始（發牌）</button>
+            <button id="hitBtn" disabled>要牌</button>
+            <button id="standBtn" disabled>停牌</button>
+            <button id="resetBtn">重置</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        const state = {
+            phase: 'idle', // 'idle' | 'playerTurn' | 'dealerTurn' | 'settled'
+            deck: [],
+            playerHand: [],
+            dealerHand: [],
+            message: '',
+            result: null // 'playerWin' | 'dealerWin' | 'push' | null
+        };
+
+        // Card suits and ranks
+        const suits = ['♠', '♥', '♦', '♣'];
+        const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        // Build a standard 52-card deck
+        function buildDeck() {
+            const deck = [];
+            for (const suit of suits) {
+                for (const rank of ranks) {
+                    deck.push({ rank, suit });
+                }
+            }
+            return deck;
+        }
+
+        // Secure random integer using crypto.getRandomValues with rejection sampling
+        function secureRandomInt(max) {
+            const array = new Uint32Array(1);
+            const limit = Math.floor(4294967296 / max) * max; // Avoid modulo bias
+            
+            let randomValue;
+            do {
+                crypto.getRandomValues(array);
+                randomValue = array[0];
+            } while (randomValue >= limit);
+            
+            return randomValue % max;
+        }
+
+        // Fisher-Yates shuffle using crypto.getRandomValues
+        function shuffleDeck(deck) {
+            const shuffled = [...deck];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = secureRandomInt(i + 1);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Draw a card from the deck
+        function drawCard() {
+            if (state.deck.length === 0) {
+                state.deck = shuffleDeck(buildDeck());
+            }
+            return state.deck.pop();
+        }
+
+        // Calculate hand value with Ace handling
+        function handValue(hand) {
+            let total = 0;
+            let aces = 0;
+
+            for (const card of hand) {
+                if (card.rank === 'A') {
+                    aces++;
+                    total += 11;
+                } else if (['J', 'Q', 'K'].includes(card.rank)) {
+                    total += 10;
+                } else {
+                    total += parseInt(card.rank);
+                }
+            }
+
+            // Adjust for Aces if busted
+            while (total > 21 && aces > 0) {
+                total -= 10;
+                aces--;
+            }
+
+            const isSoft = aces > 0 && total <= 21;
+            return { total, isSoft };
+        }
+
+        // Render a card
+        function renderCard(card, isHidden = false) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            
+            if (isHidden) {
+                cardDiv.classList.add('hidden');
+                cardDiv.textContent = '?';
+            } else {
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                cardDiv.classList.add(isRed ? 'red' : 'black');
+                cardDiv.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+            }
+            
+            return cardDiv;
+        }
+
+        // Update UI
+        function updateUI() {
+            const dealerCardsDiv = document.getElementById('dealerCards');
+            const playerCardsDiv = document.getElementById('playerCards');
+            const dealerScoreDiv = document.getElementById('dealerScore');
+            const playerScoreDiv = document.getElementById('playerScore');
+            const messageArea = document.getElementById('messageArea');
+
+            // Clear cards
+            dealerCardsDiv.innerHTML = '';
+            playerCardsDiv.innerHTML = '';
+
+            // Render dealer cards
+            state.dealerHand.forEach((card, index) => {
+                const isHidden = state.phase === 'playerTurn' && index === 1;
+                dealerCardsDiv.appendChild(renderCard(card, isHidden));
+            });
+
+            // Render player cards
+            state.playerHand.forEach(card => {
+                playerCardsDiv.appendChild(renderCard(card));
+            });
+
+            // Update scores
+            const playerValue = handValue(state.playerHand);
+            playerScoreDiv.textContent = `點數: ${playerValue.total}`;
+
+            if (state.phase === 'playerTurn' && state.dealerHand.length > 0) {
+                // Show only first card value during player turn
+                const firstCardValue = handValue([state.dealerHand[0]]);
+                dealerScoreDiv.textContent = `點數: ${firstCardValue.total} + ?`;
+            } else {
+                const dealerValue = handValue(state.dealerHand);
+                dealerScoreDiv.textContent = `點數: ${dealerValue.total}`;
+            }
+
+            // Update message
+            messageArea.textContent = state.message;
+            messageArea.className = 'message-area';
+            
+            if (state.result === 'playerWin') {
+                messageArea.classList.add('result-win');
+            } else if (state.result === 'dealerWin') {
+                messageArea.classList.add('result-lose');
+            } else if (state.result === 'push') {
+                messageArea.classList.add('result-push');
+            }
+
+            // Update button states
+            updateButtons();
+        }
+
+        // Update button states based on game phase
+        function updateButtons() {
+            const dealBtn = document.getElementById('dealBtn');
+            const hitBtn = document.getElementById('hitBtn');
+            const standBtn = document.getElementById('standBtn');
+            const resetBtn = document.getElementById('resetBtn');
+
+            switch (state.phase) {
+                case 'idle':
+                    dealBtn.disabled = false;
+                    hitBtn.disabled = true;
+                    standBtn.disabled = true;
+                    resetBtn.disabled = false;
+                    break;
+                case 'playerTurn':
+                    dealBtn.disabled = true;
+                    hitBtn.disabled = false;
+                    standBtn.disabled = false;
+                    resetBtn.disabled = false;
+                    break;
+                case 'dealerTurn':
+                    dealBtn.disabled = true;
+                    hitBtn.disabled = true;
+                    standBtn.disabled = true;
+                    resetBtn.disabled = false;
+                    break;
+                case 'settled':
+                    dealBtn.disabled = false;
+                    hitBtn.disabled = true;
+                    standBtn.disabled = true;
+                    resetBtn.disabled = false;
+                    break;
+            }
+        }
+
+        // Deal - start a new game
+        function deal() {
+            // Initialize new deck if needed or if starting fresh
+            if (state.deck.length < 15) {
+                state.deck = shuffleDeck(buildDeck());
+            }
+
+            state.playerHand = [];
+            state.dealerHand = [];
+            state.result = null;
+            state.phase = 'playerTurn';
+
+            // Deal cards: Player -> Dealer (visible) -> Player -> Dealer (hidden)
+            state.playerHand.push(drawCard());
+            state.dealerHand.push(drawCard());
+            state.playerHand.push(drawCard());
+            state.dealerHand.push(drawCard());
+
+            // Check for immediate blackjack (21 with 2 cards)
+            const playerValue = handValue(state.playerHand);
+            const dealerValue = handValue(state.dealerHand);
+
+            if (playerValue.total === 21) {
+                if (dealerValue.total === 21) {
+                    state.phase = 'settled';
+                    state.result = 'push';
+                    state.message = '平手（Push），雙方都是 21 點！';
+                } else {
+                    state.phase = 'settled';
+                    state.result = 'playerWin';
+                    state.message = 'Blackjack！你贏了！';
+                }
+            } else {
+                state.message = '已發牌，輪到你了。';
+            }
+
+            updateUI();
+        }
+
+        // Hit - player draws a card
+        function hit() {
+            if (state.phase !== 'playerTurn') return;
+
+            const card = drawCard();
+            state.playerHand.push(card);
+
+            const playerValue = handValue(state.playerHand);
+            state.message = `你抽到 ${card.rank}${card.suit}，目前 ${playerValue.total} 點。`;
+
+            if (playerValue.total > 21) {
+                state.phase = 'settled';
+                state.result = 'dealerWin';
+                state.message = `你爆牌了（${playerValue.total} 點），你輸了！`;
+            }
+
+            updateUI();
+        }
+
+        // Stand - player stands, dealer plays
+        function stand() {
+            if (state.phase !== 'playerTurn') return;
+
+            state.phase = 'dealerTurn';
+            updateUI();
+
+            // Dealer draws until >= 17
+            setTimeout(() => {
+                let dealerValue = handValue(state.dealerHand);
+                const messages = ['莊家翻開底牌...'];
+
+                while (dealerValue.total < 17) {
+                    const card = drawCard();
+                    state.dealerHand.push(card);
+                    dealerValue = handValue(state.dealerHand);
+                    messages.push(`莊家抽到 ${card.rank}${card.suit}（${dealerValue.total} 點）`);
+                }
+
+                messages.push(`莊家補牌至 ${dealerValue.total} 點並停牌。`);
+
+                // Determine winner
+                const playerValue = handValue(state.playerHand);
+                
+                if (dealerValue.total > 21) {
+                    state.result = 'playerWin';
+                    messages.push(`莊家爆牌！你贏了！${playerValue.total} 點 vs 爆牌`);
+                } else if (playerValue.total > dealerValue.total) {
+                    state.result = 'playerWin';
+                    messages.push(`你贏了！${playerValue.total} 點 > ${dealerValue.total} 點`);
+                } else if (playerValue.total < dealerValue.total) {
+                    state.result = 'dealerWin';
+                    messages.push(`你輸了！${playerValue.total} 點 < ${dealerValue.total} 點`);
+                } else {
+                    state.result = 'push';
+                    messages.push(`平手（Push），雙方 ${playerValue.total} 點`);
+                }
+
+                state.message = messages.join(' ');
+                state.phase = 'settled';
+                updateUI();
+            }, 500);
+        }
+
+        // Reset - clear game state
+        function reset() {
+            state.phase = 'idle';
+            state.deck = shuffleDeck(buildDeck());
+            state.playerHand = [];
+            state.dealerHand = [];
+            state.message = '遊戲已重置。點擊「開始」開始新遊戲。';
+            state.result = null;
+            updateUI();
+        }
+
+        // Event listeners
+        document.getElementById('dealBtn').addEventListener('click', deal);
+        document.getElementById('hitBtn').addEventListener('click', hit);
+        document.getElementById('standBtn').addEventListener('click', stand);
+        document.getElementById('resetBtn').addEventListener('click', reset);
+
+        // Initialize
+        reset();
+    </script>
+</body>
+</html>
