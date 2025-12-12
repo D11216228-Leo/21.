@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>21 點（Blackjack）</title>
+    <title>10點半</title>
     <style>
         * {
             margin: 0;
@@ -33,8 +33,35 @@
         h1 {
             text-align: center;
             color: #1e3c72;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-size: 2.5em;
+        }
+
+        .score-board {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+
+        .score-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #1e3c72;
         }
 
         .player-area, .dealer-area {
@@ -227,7 +254,22 @@
 </head>
 <body>
     <div class="game-container">
-        <h1>21 點（Blackjack）</h1>
+        <h1>10點半</h1>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="score-label">玩家積分</div>
+                <div class="score-value" id="playerTotalScore">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">莊家積分</div>
+                <div class="score-value" id="dealerTotalScore">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">回合數</div>
+                <div class="score-value" id="roundNumber">0</div>
+            </div>
+        </div>
 
         <div class="dealer-area">
             <div class="area-title">莊家</div>
@@ -242,7 +284,7 @@
         </div>
 
         <div class="message-area" id="messageArea">
-            歡迎來到 21 點！點擊「開始」開始遊戲。
+            歡迎來到 10點半！點擊「開始」開始遊戲。
         </div>
 
         <div class="controls">
@@ -261,7 +303,10 @@
             playerHand: [],
             dealerHand: [],
             message: '',
-            result: null // 'playerWin' | 'dealerWin' | 'push' | null
+            result: null, // 'playerWin' | 'dealerWin' | 'push' | null
+            playerTotalScore: 0,
+            dealerTotalScore: 0,
+            roundNumber: 0
         };
 
         // Card suits and ranks
@@ -272,6 +317,8 @@
         const UINT32_MAX = 4294967296; // 2^32
         const DECK_RESHUFFLE_THRESHOLD = 15;
         const DEALER_ACTION_DELAY_MS = 500;
+        const TARGET_SCORE = 10.5; // Target for 10點半
+        const DEALER_STAND_THRESHOLD = 7.5; // Dealer stands at 7.5 or higher
 
         // Build a standard 52-card deck
         function buildDeck() {
@@ -316,30 +363,22 @@
             return state.deck.pop();
         }
 
-        // Calculate hand value with Ace handling
+        // Calculate hand value for 10點半
+        // A = 1, 2-10 = face value, J/Q/K = 0.5
         function handValue(hand) {
             let total = 0;
-            let aces = 0;
 
             for (const card of hand) {
                 if (card.rank === 'A') {
-                    aces++;
-                    total += 11;
+                    total += 1;
                 } else if (['J', 'Q', 'K'].includes(card.rank)) {
-                    total += 10;
+                    total += 0.5;
                 } else {
                     total += parseInt(card.rank);
                 }
             }
 
-            // Adjust for Aces if busted
-            while (total > 21 && aces > 0) {
-                total -= 10;
-                aces--;
-            }
-
-            const isSoft = aces > 0 && total <= 21;
-            return { total, isSoft };
+            return { total, isSoft: false };
         }
 
         // Render a card
@@ -371,10 +410,9 @@
             dealerCardsDiv.innerHTML = '';
             playerCardsDiv.innerHTML = '';
 
-            // Render dealer cards
-            state.dealerHand.forEach((card, index) => {
-                const isHidden = state.phase === 'playerTurn' && index === 1;
-                dealerCardsDiv.appendChild(renderCard(card, isHidden));
+            // Render dealer cards (no hidden cards in 10點半during player turn)
+            state.dealerHand.forEach((card) => {
+                dealerCardsDiv.appendChild(renderCard(card, false));
             });
 
             // Render player cards
@@ -386,14 +424,8 @@
             const playerValue = handValue(state.playerHand);
             playerScoreDiv.textContent = `點數: ${playerValue.total}`;
 
-            if (state.phase === 'playerTurn' && state.dealerHand.length > 0) {
-                // Show only first card value during player turn
-                const firstCardValue = handValue([state.dealerHand[0]]);
-                dealerScoreDiv.textContent = `點數: ${firstCardValue.total} + ?`;
-            } else {
-                const dealerValue = handValue(state.dealerHand);
-                dealerScoreDiv.textContent = `點數: ${dealerValue.total}`;
-            }
+            const dealerValue = handValue(state.dealerHand);
+            dealerScoreDiv.textContent = `點數: ${dealerValue.total}`;
 
             // Update message
             messageArea.textContent = state.message;
@@ -407,8 +439,18 @@
                 messageArea.classList.add('result-push');
             }
 
+            // Update score board
+            updateScoreBoard();
+
             // Update button states
             updateButtons();
+        }
+
+        // Update score board display
+        function updateScoreBoard() {
+            document.getElementById('playerTotalScore').textContent = state.playerTotalScore;
+            document.getElementById('dealerTotalScore').textContent = state.dealerTotalScore;
+            document.getElementById('roundNumber').textContent = state.roundNumber;
         }
 
         // Update button states based on game phase
@@ -446,7 +488,7 @@
             }
         }
 
-        // Deal - start a new game
+        // Deal - start a new round
         function deal() {
             // Initialize new deck if needed or if starting fresh
             if (state.deck.length < DECK_RESHUFFLE_THRESHOLD) {
@@ -457,30 +499,13 @@
             state.dealerHand = [];
             state.result = null;
             state.phase = 'playerTurn';
+            state.roundNumber++;
 
-            // Deal cards: Player -> Dealer (visible) -> Player -> Dealer (hidden)
+            // Deal initial card to player only (10點半rule: start with 1 card)
             state.playerHand.push(drawCard());
             state.dealerHand.push(drawCard());
-            state.playerHand.push(drawCard());
-            state.dealerHand.push(drawCard());
 
-            // Check for immediate blackjack (21 with 2 cards)
-            const playerValue = handValue(state.playerHand);
-            const dealerValue = handValue(state.dealerHand);
-
-            if (playerValue.total === 21) {
-                if (dealerValue.total === 21) {
-                    state.phase = 'settled';
-                    state.result = 'push';
-                    state.message = '平手（Push），雙方都是 21 點！';
-                } else {
-                    state.phase = 'settled';
-                    state.result = 'playerWin';
-                    state.message = 'Blackjack！你贏了！';
-                }
-            } else {
-                state.message = '已發牌，輪到你了。';
-            }
+            state.message = '已發牌，輪到你了。';
 
             updateUI();
         }
@@ -495,9 +520,10 @@
             const playerValue = handValue(state.playerHand);
             state.message = `你抽到 ${card.rank}${card.suit}，目前 ${playerValue.total} 點。`;
 
-            if (playerValue.total > 21) {
+            if (playerValue.total > TARGET_SCORE) {
                 state.phase = 'settled';
                 state.result = 'dealerWin';
+                state.dealerTotalScore++;
                 state.message = `你爆牌了（${playerValue.total} 點），你輸了！`;
             }
 
@@ -511,12 +537,12 @@
             state.phase = 'dealerTurn';
             updateUI();
 
-            // Dealer draws until >= 17
+            // Dealer draws until >= DEALER_STAND_THRESHOLD (7.5 for 10點半)
             setTimeout(() => {
                 let dealerValue = handValue(state.dealerHand);
-                const messages = ['莊家翻開底牌...'];
+                const messages = ['莊家開始補牌...'];
 
-                while (dealerValue.total < 17) {
+                while (dealerValue.total < DEALER_STAND_THRESHOLD) {
                     const card = drawCard();
                     state.dealerHand.push(card);
                     dealerValue = handValue(state.dealerHand);
@@ -528,14 +554,17 @@
                 // Determine winner
                 const playerValue = handValue(state.playerHand);
                 
-                if (dealerValue.total > 21) {
+                if (dealerValue.total > TARGET_SCORE) {
                     state.result = 'playerWin';
+                    state.playerTotalScore++;
                     messages.push(`莊家爆牌！你贏了！${playerValue.total} 點 vs 爆牌`);
                 } else if (playerValue.total > dealerValue.total) {
                     state.result = 'playerWin';
+                    state.playerTotalScore++;
                     messages.push(`你贏了！${playerValue.total} 點 > ${dealerValue.total} 點`);
                 } else if (playerValue.total < dealerValue.total) {
                     state.result = 'dealerWin';
+                    state.dealerTotalScore++;
                     messages.push(`你輸了！${playerValue.total} 點 < ${dealerValue.total} 點`);
                 } else {
                     state.result = 'push';
@@ -556,6 +585,9 @@
             state.dealerHand = [];
             state.message = '遊戲已重置。點擊「開始」開始新遊戲。';
             state.result = null;
+            state.playerTotalScore = 0;
+            state.dealerTotalScore = 0;
+            state.roundNumber = 0;
             updateUI();
         }
 
