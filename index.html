@@ -268,6 +268,11 @@
         const suits = ['♠', '♥', '♦', '♣'];
         const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
+        // Constants
+        const UINT32_MAX = 4294967296; // 2^32
+        const DECK_RESHUFFLE_THRESHOLD = 15;
+        const DEALER_ACTION_DELAY_MS = 500;
+
         // Build a standard 52-card deck
         function buildDeck() {
             const deck = [];
@@ -282,7 +287,7 @@
         // Secure random integer using crypto.getRandomValues with rejection sampling
         function secureRandomInt(max) {
             const array = new Uint32Array(1);
-            const limit = Math.floor(4294967296 / max) * max; // Avoid modulo bias
+            const limit = Math.floor(UINT32_MAX / max) * max; // Avoid modulo bias
             
             let randomValue;
             do {
@@ -305,7 +310,7 @@
 
         // Draw a card from the deck
         function drawCard() {
-            if (state.deck.length === 0) {
+            if (state.deck.length < DECK_RESHUFFLE_THRESHOLD) {
                 state.deck = shuffleDeck(buildDeck());
             }
             return state.deck.pop();
@@ -444,7 +449,7 @@
         // Deal - start a new game
         function deal() {
             // Initialize new deck if needed or if starting fresh
-            if (state.deck.length < 15) {
+            if (state.deck.length < DECK_RESHUFFLE_THRESHOLD) {
                 state.deck = shuffleDeck(buildDeck());
             }
 
@@ -540,7 +545,7 @@
                 state.message = messages.join(' ');
                 state.phase = 'settled';
                 updateUI();
-            }, 500);
+            }, DEALER_ACTION_DELAY_MS);
         }
 
         // Reset - clear game state
